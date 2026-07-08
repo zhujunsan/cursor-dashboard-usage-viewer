@@ -25,6 +25,9 @@ Choose one method:
    https://github.com/zhujunsan/cursor-dashboard-usage-viewer/raw/main/cursor-dashboard-usage-viewer.user.js  
 3. Tampermonkey will prompt you to install — confirm to proceed.
 
+If `raw.githubusercontent.com` fails to load in your browser, use the `github.com/.../raw/...` link above instead. Mirror:  
+https://cdn.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@main/cursor-dashboard-usage-viewer.user.js
+
 **Option B: Install from the repository file**
 
 1. Download `cursor-dashboard-usage-viewer.user.js` from this repository.
@@ -55,14 +58,13 @@ After installation, the script should appear as **Cursor Dashboard Usage Viewer*
 
 ## Updates
 
-The script is configured with `@updateURL` / `@downloadURL`. Tampermonkey will periodically check GitHub for new versions; you can also manually check for updates in the dashboard.
+The script is configured with `@updateURL` / `@downloadURL` (using `github.com/.../raw/...`, not `raw.githubusercontent.com`, for better accessibility). Tampermonkey will periodically check for new versions; you can also manually check for updates in the dashboard.
 
 ## Files
 
 | File | Description |
 |------|-------------|
 | `cursor-dashboard-usage-viewer.user.js` | Tampermonkey userscript |
-| `Cursor用量展示安装指南.md` | More detailed installation guide (Chinese) |
 
 ## License
 

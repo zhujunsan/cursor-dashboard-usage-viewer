@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.0
+// @version      1.0.1
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -10,8 +10,8 @@
 // @match        https://www.cursor.com/dashboard/*
 // @homepageURL  https://github.com/zhujunsan/cursor-dashboard-usage-viewer
 // @supportURL   https://github.com/zhujunsan/cursor-dashboard-usage-viewer/issues
-// @updateURL    https://raw.githubusercontent.com/zhujunsan/cursor-dashboard-usage-viewer/main/cursor-dashboard-usage-viewer.user.js
-// @downloadURL  https://raw.githubusercontent.com/zhujunsan/cursor-dashboard-usage-viewer/main/cursor-dashboard-usage-viewer.user.js
+// @updateURL    https://github.com/zhujunsan/cursor-dashboard-usage-viewer/raw/main/cursor-dashboard-usage-viewer.user.js
+// @downloadURL  https://github.com/zhujunsan/cursor-dashboard-usage-viewer/raw/main/cursor-dashboard-usage-viewer.user.js
 // @run-at       document-end
 // @grant        none
 // @icon         https://cursor.com/favicon.ico
@@ -24,7 +24,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.1';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
@@ -82,8 +82,8 @@
     }
     #${ROOT_ID} .cue-bar__fill {
       height: 100%;
-      background: var(--text-tertiary, #b3b3b3);
-      opacity: 0.7;
+      background: var(--text-secondary, #888);
+      opacity: 0.8;
       border-radius: 999px;
     }
     #${ROOT_ID} .cue-bar__fill--full { width: 100%; }
@@ -116,11 +116,6 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
-  }
-
-  function clampPct(v, cap100 = true) {
-    const n = v ?? 0;
-    return cap100 ? Math.min(100, Math.max(0, n)) : n;
   }
 
   function calcUsedPct(used, limit) {
@@ -175,9 +170,8 @@
     return `${formatCents(used)} / ${formatCentsNumber(limit)}`;
   }
 
-  function formatPercentValue(pct, { rounded = false } = {}) {
-    const v = pct ?? 0;
-    return rounded ? `${Math.round(v)}%` : `${clampPct(v).toFixed(1)}%`;
+  function formatPercentValue(pct) {
+    return `${(pct ?? 0).toFixed(1)}%`;
   }
 
   function formatLocalDateTime(iso) {
@@ -204,7 +198,7 @@
   // ─── Render: primitives ────────────────────────────────────────────────────
 
   function progressBarTrack(pct, label = '') {
-    const v = clampPct(pct);
+    const v = pct ?? 0;
     const w = v.toFixed(1);
     const ariaLabel = label ? ` aria-label="${esc(label)}"` : '';
     return `
@@ -225,26 +219,26 @@
     `;
   }
 
-  function inlineWithPercent(left, pct, { rounded = false, leftClass = '', wrapClass = '' } = {}) {
+  function inlineWithPercent(left, pct, { leftClass = '', wrapClass = '' } = {}) {
     return `
       <div class="cue-inline ${wrapClass}">
         <span class="${leftClass}">${left}</span>
-        <span class="cue-pct">${formatPercentValue(pct, { rounded })}</span>
+        <span class="cue-pct">${formatPercentValue(pct)}</span>
       </div>
     `;
   }
 
-  function amountWithBar(left, pct, { rounded = false, full = false, leftClass = '', wrapClass = '', barLabel = '' } = {}) {
+  function amountWithBar(left, pct, { full = false, leftClass = '', wrapClass = '', barLabel = '' } = {}) {
     const bar = full ? progressBarFull(barLabel) : progressBarTrack(pct, barLabel);
-    return `${inlineWithPercent(left, pct, { rounded, leftClass, wrapClass })}${bar}`;
+    return `${inlineWithPercent(left, pct, { leftClass, wrapClass })}${bar}`;
   }
 
-  function percentWithBar(pct, { rounded = false, full = false, barLabel = '' } = {}) {
+  function percentWithBar(pct, { full = false, barLabel = '' } = {}) {
     const bar = full ? progressBarFull(barLabel) : progressBarTrack(pct, barLabel);
     return `
       <div class="cue-inline">
         <span></span>
-        <span class="cue-pct">${formatPercentValue(pct, { rounded })}</span>
+        <span class="cue-pct">${formatPercentValue(pct)}</span>
       </div>
       ${bar}
     `;
@@ -323,7 +317,7 @@
       inlineWithPercent(
         formatUsedLimit(displayUsed, displayLimit),
         usedPct,
-        { rounded: true, leftClass: 'font-semibold text-primary whitespace-nowrap' },
+        { leftClass: 'font-semibold text-primary whitespace-nowrap' },
       ),
     ];
 
