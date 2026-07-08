@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.1
+// @version      1.0.2
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -10,8 +10,8 @@
 // @match        https://www.cursor.com/dashboard/*
 // @homepageURL  https://github.com/zhujunsan/cursor-dashboard-usage-viewer
 // @supportURL   https://github.com/zhujunsan/cursor-dashboard-usage-viewer/issues
-// @updateURL    https://github.com/zhujunsan/cursor-dashboard-usage-viewer/raw/main/cursor-dashboard-usage-viewer.user.js
-// @downloadURL  https://github.com/zhujunsan/cursor-dashboard-usage-viewer/raw/main/cursor-dashboard-usage-viewer.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@latest/cursor-dashboard-usage-viewer.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@latest/cursor-dashboard-usage-viewer.user.js
 // @run-at       document-end
 // @grant        none
 // @icon         https://cursor.com/favicon.ico
@@ -24,7 +24,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.1';
+  const VERSION = '1.0.2';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
