@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.4
+// @version      1.0.5
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -24,7 +24,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.4';
+  const VERSION = '1.0.5';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
@@ -84,7 +84,6 @@
       max-width: 100%;
       background: var(--color-dashboard-usage-accent, #555);
     }
-    #${ROOT_ID} .cue-bar__fill--full { width: 100%; }
     #${ROOT_ID} .cue-bar__marker {
       position: absolute;
       top: -1px;
@@ -97,6 +96,13 @@
     #${ROOT_ID} .cue-bar__marker--ok { background: #22c55e; }
     #${ROOT_ID} .cue-bar__marker--over { background: #ef4444; }
     #${ROOT_ID} .cue-refresh-btn { height: 28px; }
+    #${ROOT_ID} .cue-status {
+      margin: 0;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      color: var(--text-secondary, #666);
+    }
+    #${ROOT_ID} .cue-status--error { color: #ef4444; }
   `;
 
   // ─── State ─────────────────────────────────────────────────────────────────
@@ -109,6 +115,7 @@
   let fetchCtrl = null;
   let mountObserver = null;
   let mountTimeout = null;
+  let mountRaf = null;
   let spaHooked = false;
   let usagePageKey = '';
   let usagePageCache = false;
@@ -148,10 +155,15 @@
     return el?.isConnected ? el : null;
   }
 
-  function getTeamId() {
-    if (cachedTeamId) return cachedTeamId;
+  function readTeamIdFromCookie() {
     const match = document.cookie.match(/(?:^|; )team_id=([^;]*)/);
-    cachedTeamId = match ? decodeURIComponent(match[1]) : null;
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  function getTeamId() {
+    const current = readTeamIdFromCookie();
+    // Re-read when cookie changes (team switch / re-login); keep cache only as a hit.
+    if (current !== cachedTeamId) cachedTeamId = current;
     return cachedTeamId;
   }
 
@@ -190,27 +202,34 @@
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
-  function formatLocalDate(iso) {
+  function parseDate(iso) {
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatLocalDate(d) {
+    if (!d) return '—';
     return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   }
 
-  function formatLocalTime(iso) {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
+  function formatLocalTime(d) {
+    if (!d) return '';
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
   function formatDateRange(start, end) {
-    const startDate = formatLocalDate(start);
-    const endDate = formatLocalDate(end);
-    const endTime = formatLocalTime(end);
-    if (startDate === '—' || endDate === '—') return '—';
-    return `${startDate} - ${endDate} ${endTime}`;
+    const startDate = parseDate(start);
+    const endDate = parseDate(end);
+    if (!startDate || !endDate) return '—';
+    return `${formatLocalDate(startDate)} - ${formatLocalDate(endDate)} ${formatLocalTime(endDate)}`;
   }
 
-  function renderMeta(data) {
+  function getTimeProgress(data) {
+    if (!data?.billingCycleStart || !data?.billingCycleEnd) return null;
+    return calcTimeProgress(data.billingCycleStart, data.billingCycleEnd);
+  }
+
+  function renderMeta(data, timePct = getTimeProgress(data)) {
     const cycle = data.billingCycleStart && data.billingCycleEnd
       ? formatDateRange(data.billingCycleStart, data.billingCycleEnd)
       : '';
@@ -218,15 +237,16 @@
       data.membershipType && capitalize(data.membershipType),
       data.limitType && `Limit: ${capitalize(data.limitType)}`,
       cycle,
+      timePct != null && `Time Progress: ${timePct.toFixed(1)}%`,
     ].filter(Boolean).join(' · ');
   }
 
   // ─── Render: primitives ────────────────────────────────────────────────────
 
   function calcTimeProgress(start, end, now = Date.now()) {
-    const s = new Date(start).getTime();
-    const e = new Date(end).getTime();
-    if (Number.isNaN(s) || Number.isNaN(e) || e <= s) return null;
+    const s = parseDate(start)?.getTime();
+    const e = parseDate(end)?.getTime();
+    if (s == null || e == null || e <= s) return null;
     return Math.min(100, Math.max(0, ((now - s) / (e - s)) * 100));
   }
 
@@ -235,10 +255,11 @@
     const over = (usedPct ?? 0) > timePct;
     const cls = over ? 'cue-bar__marker--over' : 'cue-bar__marker--ok';
     const left = timePct.toFixed(1);
-    return `<div class="cue-bar__marker ${cls}" style="left:${left}%" title="Time: ${left}%"></div>`;
+    // Decorative only — textual time progress lives in the meta line for a11y.
+    return `<div class="cue-bar__marker ${cls}" style="left:${left}%" aria-hidden="true"></div>`;
   }
 
-  function progressBarTrack(pct, label = '', { timePct } = {}) {
+  function progressBar(pct, { label = '', timePct } = {}) {
     const v = pct ?? 0;
     const w = Math.min(100, v).toFixed(1);
     const ariaLabel = label ? ` aria-label="${esc(label)}"` : '';
@@ -247,17 +268,6 @@
         <div class="cue-bar__fill" style="width:${w}%"
           role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${w}"${ariaLabel}></div>
         ${timeMarkerHtml(timePct, v)}
-      </div>
-    `;
-  }
-
-  function progressBarFull(label = '', { timePct, usedPct } = {}) {
-    const ariaLabel = label ? ` aria-label="${esc(label)}"` : '';
-    return `
-      <div class="cue-bar">
-        <div class="cue-bar__fill cue-bar__fill--full"
-          role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"${ariaLabel}></div>
-        ${timeMarkerHtml(timePct, usedPct ?? 100)}
       </div>
     `;
   }
@@ -271,23 +281,17 @@
     `;
   }
 
-  function amountWithBar(left, pct, { full = false, leftClass = '', wrapClass = '', barLabel = '', timePct } = {}) {
-    const bar = full
-      ? progressBarFull(barLabel, { timePct, usedPct: pct })
-      : progressBarTrack(pct, barLabel, { timePct });
-    return `${inlineWithPercent(left, pct, { leftClass, wrapClass })}${bar}`;
+  function amountWithBar(left, pct, { leftClass = '', wrapClass = '', barLabel = '', timePct } = {}) {
+    return `${inlineWithPercent(left, pct, { leftClass, wrapClass })}${progressBar(pct, { label: barLabel, timePct })}`;
   }
 
-  function percentWithBar(pct, { full = false, barLabel = '', timePct } = {}) {
-    const bar = full
-      ? progressBarFull(barLabel, { timePct, usedPct: pct })
-      : progressBarTrack(pct, barLabel, { timePct });
+  function percentWithBar(pct, { barLabel = '', timePct } = {}) {
     return `
       <div class="cue-inline">
         <span></span>
         <span class="cue-pct">${formatPercentValue(pct)}</span>
       </div>
-      ${bar}
+      ${progressBar(pct, { label: barLabel, timePct })}
     `;
   }
 
@@ -302,7 +306,8 @@
     `;
   }
 
-  function renderHeader({ showRefresh = true, meta = '' } = {}) {
+  function renderHeader({ showRefresh = true, meta = '', status = '', statusError = false } = {}) {
+    const statusCls = statusError ? 'cue-status cue-status--error' : 'cue-status';
     return `
       <div class="flex flex-col gap-2">
         <div class="flex flex-row items-center justify-between">
@@ -312,8 +317,17 @@
             : ''}
         </div>
         <p data-cue-meta class="tracking-tight text-base text-secondary"${meta ? '' : ' hidden'}>${esc(meta)}</p>
+        <p data-cue-status class="${statusCls}"${status ? '' : ' hidden'}>${esc(status)}</p>
       </div>
     `;
+  }
+
+  function setStatus(root, message = '', { error: isError = false } = {}) {
+    const el = root?.querySelector('[data-cue-status]');
+    if (!el) return;
+    el.textContent = message;
+    el.hidden = !message;
+    el.classList.toggle('cue-status--error', !!isError && !!message);
   }
 
   function renderTableShell(rowsHtml) {
@@ -374,7 +388,8 @@
       );
     }
 
-    parts.push(progressBarFull('Plan Included', { timePct, usedPct }));
+    // Cap bar width at 100%, but keep real usedPct for the time-marker color.
+    parts.push(progressBar(usedPct, { label: 'Plan Included', timePct }));
 
     return [
       renderRow('Plan Included', parts.join(''), { labelClass: 'font-semibold text-primary' }),
@@ -382,12 +397,9 @@
     ].join('');
   }
 
-  function renderRows(data) {
+  function renderRows(data, timePct = getTimeProgress(data)) {
     const rows = [];
     const plan = data.individualUsage?.plan;
-    const timePct = data.billingCycleStart && data.billingCycleEnd
-      ? calcTimeProgress(data.billingCycleStart, data.billingCycleEnd)
-      : null;
 
     if (plan?.enabled) rows.push(renderPlanIncludedRows(plan, timePct));
 
@@ -401,25 +413,30 @@
   }
 
   function renderPanel(data) {
-    return `${renderHeader({ meta: renderMeta(data) })}${renderTableShell(renderRows(data))}`;
+    const timePct = getTimeProgress(data);
+    return `${renderHeader({ meta: renderMeta(data, timePct) })}${renderTableShell(renderRows(data, timePct))}`;
   }
 
   function renderError(message) {
     return `
-      ${renderHeader({ showRefresh: false })}
-      <p class="text-base text-secondary">Failed to load: ${esc(message)}</p>
+      ${renderHeader({
+        status: `Failed to load: ${message}`,
+        statusError: true,
+      })}
     `;
   }
 
   function updatePanel(root, data) {
+    const timePct = getTimeProgress(data);
     const tbody = root.querySelector('[data-cue-tbody]');
     const metaEl = root.querySelector('[data-cue-meta]');
-    if (tbody) tbody.innerHTML = renderRows(data);
+    if (tbody) tbody.innerHTML = renderRows(data, timePct);
     if (metaEl) {
-      const meta = renderMeta(data);
+      const meta = renderMeta(data, timePct);
       metaEl.textContent = meta;
       metaEl.hidden = !meta;
     }
+    setStatus(root, '');
   }
 
   // ─── Data ──────────────────────────────────────────────────────────────────
@@ -452,9 +469,12 @@
   function findUsageColumn() {
     if (cachedColumn?.isConnected) return cachedColumn;
 
-    for (const card of document.querySelectorAll('div.dashboard-card')) {
+    // Strategy 1: card titled "Included Usage" (exact, then fuzzy).
+    const cards = document.querySelectorAll('div.dashboard-card');
+    for (const card of cards) {
       const title = card.querySelector('p');
-      if (title?.textContent === 'Included Usage') {
+      const text = title?.textContent?.trim() || '';
+      if (text === 'Included Usage') {
         const column = card.closest('div.col-span-1');
         if (column) {
           cachedColumn = column;
@@ -462,17 +482,35 @@
         }
       }
     }
+    for (const card of cards) {
+      const title = card.querySelector('p');
+      const text = (title?.textContent || '').toLowerCase();
+      if (text.includes('included') && text.includes('usage')) {
+        const column = card.closest('div.col-span-1') || card.parentElement;
+        if (column) {
+          log('mount: fuzzy Included Usage match →', text.trim());
+          cachedColumn = column;
+          return column;
+        }
+      }
+    }
 
+    // Strategy 2: usage-looking column with a card/table.
     for (const col of document.querySelectorAll('div.col-span-1.flex.flex-col.gap-6')) {
       if (col.querySelector('div.dashboard-card, table, [role="table"]')) {
+        log('mount: fallback column with card/table');
         cachedColumn = col;
         return col;
       }
     }
 
+    // Strategy 3: first matching column shell.
     const any = document.querySelector('div.col-span-1.flex.flex-col.gap-6');
-    if (any) cachedColumn = any;
-    return any;
+    if (any) {
+      log('mount: last-resort column shell');
+      cachedColumn = any;
+    }
+    return any || null;
   }
 
   function getMountObserverTarget() {
@@ -494,6 +532,7 @@
 
     btn.textContent = 'Loading…';
     btn.disabled = true;
+    setStatus(root, '');
     try {
       latestData = await fetchUsageSummary();
       if (root.querySelector('[data-cue-tbody]')) {
@@ -506,6 +545,8 @@
       if (err.name !== 'AbortError') {
         error('refresh failed', err);
         btn.textContent = 'Failed';
+        // Keep existing data; surface the failure next to the header.
+        setStatus(root, `Refresh failed: ${err.message || 'unknown error'}`, { error: true });
       }
     } finally {
       setTimeout(() => {
@@ -525,6 +566,10 @@
     if (mountTimeout) {
       clearTimeout(mountTimeout);
       mountTimeout = null;
+    }
+    if (mountRaf != null) {
+      cancelAnimationFrame(mountRaf);
+      mountRaf = null;
     }
   }
 
@@ -551,6 +596,7 @@
     if (errorMessage) {
       root.removeAttribute('data-events-bound');
       root.innerHTML = renderError(errorMessage);
+      ensureRootEvents(root);
     } else if (latestData) {
       if (root.querySelector('[data-cue-tbody]')) {
         updatePanel(root, latestData);
@@ -570,12 +616,21 @@
     if (tryMount(errorMessage)) return;
 
     mountObserver = new MutationObserver(() => {
-      if (tryMount(errorMessage)) stopMountWatch();
+      if (mountRaf != null) return;
+      mountRaf = requestAnimationFrame(() => {
+        mountRaf = null;
+        if (tryMount(errorMessage)) stopMountWatch();
+      });
     });
     mountObserver.observe(getMountObserverTarget(), { childList: true, subtree: true });
 
     mountTimeout = setTimeout(() => {
-      if (!getRoot()) warn('mount watch timeout');
+      if (!getRoot()) {
+        warn(
+          `mount watch timeout after ${MOUNT_TIMEOUT_MS}ms — ` +
+          'Included Usage column not found; page layout may have changed',
+        );
+      }
       stopMountWatch();
     }, MOUNT_TIMEOUT_MS);
   }
@@ -587,6 +642,7 @@
     mounted = false;
     latestData = null;
     cachedColumn = null;
+    cachedTeamId = null;
     stopMountWatch();
     document.getElementById(ROOT_ID)?.remove();
   }
