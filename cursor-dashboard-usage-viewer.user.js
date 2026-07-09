@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.2
+// @version      1.0.3
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -24,7 +24,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.2';
+  const VERSION = '1.0.3';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
@@ -74,19 +74,30 @@
       flex-shrink: 0;
     }
     #${ROOT_ID} .cue-bar {
+      position: relative;
       margin-top: 4px;
       height: 4px;
       border-radius: 999px;
-      background: var(--bg-quaternary, #ececec);
-      overflow: hidden;
+      background: var(--color-dashboard-usage-accent-10, rgba(0, 0, 0, 0.08));
     }
     #${ROOT_ID} .cue-bar__fill {
       height: 100%;
-      background: var(--text-secondary, #888);
-      opacity: 0.8;
+      max-width: 100%;
+      background: var(--color-dashboard-usage-accent, #555);
       border-radius: 999px;
     }
     #${ROOT_ID} .cue-bar__fill--full { width: 100%; }
+    #${ROOT_ID} .cue-bar__marker {
+      position: absolute;
+      top: -1px;
+      bottom: -1px;
+      width: 1px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    #${ROOT_ID} .cue-bar__marker--ok { background: #22c55e; }
+    #${ROOT_ID} .cue-bar__marker--over { background: #ef4444; }
     #${ROOT_ID} .cue-refresh-btn { height: 28px; }
   `;
 
@@ -174,14 +185,31 @@
     return `${(pct ?? 0).toFixed(1)}%`;
   }
 
-  function formatLocalDateTime(iso) {
+  const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function capitalize(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function formatLocalDate(iso) {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '—';
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+
+  function formatLocalTime(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
   function formatDateRange(start, end) {
-    return `${formatLocalDateTime(start)} — ${formatLocalDateTime(end)}`;
+    const startDate = formatLocalDate(start);
+    const endDate = formatLocalDate(end);
+    const endTime = formatLocalTime(end);
+    if (startDate === '—' || endDate === '—') return '—';
+    return `${startDate} - ${endDate} ${endTime}`;
   }
 
   function renderMeta(data) {
@@ -189,32 +217,49 @@
       ? formatDateRange(data.billingCycleStart, data.billingCycleEnd)
       : '';
     return [
-      data.membershipType,
-      data.limitType && `limit: ${data.limitType}`,
+      data.membershipType && capitalize(data.membershipType),
+      data.limitType && `Limit: ${capitalize(data.limitType)}`,
       cycle,
     ].filter(Boolean).join(' · ');
   }
 
   // ─── Render: primitives ────────────────────────────────────────────────────
 
-  function progressBarTrack(pct, label = '') {
+  function calcTimeProgress(start, end, now = Date.now()) {
+    const s = new Date(start).getTime();
+    const e = new Date(end).getTime();
+    if (Number.isNaN(s) || Number.isNaN(e) || e <= s) return null;
+    return Math.min(100, Math.max(0, ((now - s) / (e - s)) * 100));
+  }
+
+  function timeMarkerHtml(timePct, usedPct) {
+    if (timePct == null) return '';
+    const over = (usedPct ?? 0) > timePct;
+    const cls = over ? 'cue-bar__marker--over' : 'cue-bar__marker--ok';
+    const left = timePct.toFixed(1);
+    return `<div class="cue-bar__marker ${cls}" style="left:${left}%" title="Time: ${left}%"></div>`;
+  }
+
+  function progressBarTrack(pct, label = '', { timePct } = {}) {
     const v = pct ?? 0;
-    const w = v.toFixed(1);
+    const w = Math.min(100, v).toFixed(1);
     const ariaLabel = label ? ` aria-label="${esc(label)}"` : '';
     return `
       <div class="cue-bar">
         <div class="cue-bar__fill" style="width:${w}%"
           role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${w}"${ariaLabel}></div>
+        ${timeMarkerHtml(timePct, v)}
       </div>
     `;
   }
 
-  function progressBarFull(label = '') {
+  function progressBarFull(label = '', { timePct, usedPct } = {}) {
     const ariaLabel = label ? ` aria-label="${esc(label)}"` : '';
     return `
       <div class="cue-bar">
         <div class="cue-bar__fill cue-bar__fill--full"
           role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"${ariaLabel}></div>
+        ${timeMarkerHtml(timePct, usedPct ?? 100)}
       </div>
     `;
   }
@@ -228,13 +273,17 @@
     `;
   }
 
-  function amountWithBar(left, pct, { full = false, leftClass = '', wrapClass = '', barLabel = '' } = {}) {
-    const bar = full ? progressBarFull(barLabel) : progressBarTrack(pct, barLabel);
+  function amountWithBar(left, pct, { full = false, leftClass = '', wrapClass = '', barLabel = '', timePct } = {}) {
+    const bar = full
+      ? progressBarFull(barLabel, { timePct, usedPct: pct })
+      : progressBarTrack(pct, barLabel, { timePct });
     return `${inlineWithPercent(left, pct, { leftClass, wrapClass })}${bar}`;
   }
 
-  function percentWithBar(pct, { full = false, barLabel = '' } = {}) {
-    const bar = full ? progressBarFull(barLabel) : progressBarTrack(pct, barLabel);
+  function percentWithBar(pct, { full = false, barLabel = '', timePct } = {}) {
+    const bar = full
+      ? progressBarFull(barLabel, { timePct, usedPct: pct })
+      : progressBarTrack(pct, barLabel, { timePct });
     return `
       <div class="cue-inline">
         <span></span>
@@ -289,26 +338,26 @@
 
   // ─── Render: rows ──────────────────────────────────────────────────────────
 
-  function renderAmountRow(label, used, limit, { bold = false, usedPct } = {}) {
+  function renderAmountRow(label, used, limit, { bold = false, usedPct, timePct } = {}) {
     const pct = usedPct ?? calcUsedPct(used, limit);
     const value = amountWithBar(
       formatUsedLimit(used, limit),
       pct,
-      { leftClass: 'font-semibold text-primary whitespace-nowrap', barLabel: label },
+      { leftClass: 'font-semibold text-primary whitespace-nowrap', barLabel: label, timePct },
     );
     return renderRow(label, value, {
       labelClass: bold ? 'font-semibold text-primary' : 'font-medium text-secondary',
     });
   }
 
-  function renderPercentSubRow(label, pct) {
-    return renderRow(label, percentWithBar(pct, { barLabel: label }), {
+  function renderPercentSubRow(label, pct, timePct) {
+    return renderRow(label, percentWithBar(pct, { barLabel: label, timePct }), {
       indent: true,
       labelClass: 'text-sm text-secondary',
     });
   }
 
-  function renderPlanIncludedRows(plan) {
+  function renderPlanIncludedRows(plan, timePct) {
     const breakdown = plan.breakdown;
     const displayUsed = breakdown?.total ?? plan.used;
     const displayLimit = breakdown?.included ?? plan.limit;
@@ -327,23 +376,26 @@
       );
     }
 
-    parts.push(progressBarFull('Plan Included'));
+    parts.push(progressBarFull('Plan Included', { timePct, usedPct }));
 
     return [
       renderRow('Plan Included', parts.join(''), { labelClass: 'font-semibold text-primary' }),
-      ...PLAN_SUB_ROWS.map(({ label, key }) => renderPercentSubRow(label, plan[key])),
+      ...PLAN_SUB_ROWS.map(({ label, key }) => renderPercentSubRow(label, plan[key], timePct)),
     ].join('');
   }
 
   function renderRows(data) {
     const rows = [];
     const plan = data.individualUsage?.plan;
+    const timePct = data.billingCycleStart && data.billingCycleEnd
+      ? calcTimeProgress(data.billingCycleStart, data.billingCycleEnd)
+      : null;
 
-    if (plan?.enabled) rows.push(renderPlanIncludedRows(plan));
+    if (plan?.enabled) rows.push(renderPlanIncludedRows(plan, timePct));
 
     for (const { label, getData } of ON_DEMAND_ROWS) {
       const od = getData(data);
-      if (od?.enabled) rows.push(renderAmountRow(label, od.used, od.limit, { bold: true }));
+      if (od?.enabled) rows.push(renderAmountRow(label, od.used, od.limit, { bold: true, timePct }));
     }
 
     return rows.join('')
