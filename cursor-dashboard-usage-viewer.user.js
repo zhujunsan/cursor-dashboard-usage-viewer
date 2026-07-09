@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.5
+// @version      1.0.6
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -24,7 +24,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.5';
+  const VERSION = '1.0.6';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
@@ -43,7 +43,7 @@
 
   const PLAN_SUB_ROWS = [
     { label: 'API', key: 'apiPercentUsed' },
-    { label: 'Auto', key: 'autoPercentUsed' },
+    { label: 'First-party models', key: 'autoPercentUsed' },
     { label: 'Total', key: 'totalPercentUsed' },
   ];
 
