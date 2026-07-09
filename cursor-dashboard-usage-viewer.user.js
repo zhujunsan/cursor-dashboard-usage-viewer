@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.3
+// @version      1.0.4
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -24,7 +24,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.3';
+  const VERSION = '1.0.4';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
@@ -77,14 +77,12 @@
       position: relative;
       margin-top: 4px;
       height: 4px;
-      border-radius: 999px;
       background: var(--color-dashboard-usage-accent-10, rgba(0, 0, 0, 0.08));
     }
     #${ROOT_ID} .cue-bar__fill {
       height: 100%;
       max-width: 100%;
       background: var(--color-dashboard-usage-accent, #555);
-      border-radius: 999px;
     }
     #${ROOT_ID} .cue-bar__fill--full { width: 100%; }
     #${ROOT_ID} .cue-bar__marker {
