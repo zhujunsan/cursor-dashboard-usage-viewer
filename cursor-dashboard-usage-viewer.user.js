@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.6
+// @version      1.0.7
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -24,7 +24,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.6';
+  const VERSION = '1.0.7';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
@@ -111,7 +111,6 @@
   let latestData = null;
   let mounted = false;
   let cachedColumn = null;
-  let cachedTeamId = null;
   let fetchCtrl = null;
   let mountObserver = null;
   let mountTimeout = null;
@@ -153,18 +152,6 @@
   function getRoot() {
     const el = document.getElementById(ROOT_ID);
     return el?.isConnected ? el : null;
-  }
-
-  function readTeamIdFromCookie() {
-    const match = document.cookie.match(/(?:^|; )team_id=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : null;
-  }
-
-  function getTeamId() {
-    const current = readTeamIdFromCookie();
-    // Re-read when cookie changes (team switch / re-login); keep cache only as a hit.
-    if (current !== cachedTeamId) cachedTeamId = current;
-    return cachedTeamId;
   }
 
   function injectStyles() {
@@ -446,10 +433,7 @@
     fetchCtrl = new AbortController();
     const { signal } = fetchCtrl;
 
-    const teamId = getTeamId();
-    if (!teamId) throw new Error('team_id cookie not found');
-
-    const url = `/api/usage-summary?teamId=${encodeURIComponent(teamId)}`;
+    const url = '/api/usage-summary';
     log('fetch:', url);
 
     const res = await fetch(url, {
@@ -642,7 +626,6 @@
     mounted = false;
     latestData = null;
     cachedColumn = null;
-    cachedTeamId = null;
     stopMountWatch();
     document.getElementById(ROOT_ID)?.remove();
   }

@@ -26,7 +26,7 @@ Choose one method:
 3. Tampermonkey will prompt you to install — confirm to proceed.
 
 Version-pinned install (bypasses CDN cache for a specific release):  
-<a href="https://cdn.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@1.0.6/cursor-dashboard-usage-viewer.user.js" target="_blank" rel="noopener noreferrer">https://cdn.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@1.0.6/cursor-dashboard-usage-viewer.user.js</a>
+<a href="https://cdn.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@1.0.7/cursor-dashboard-usage-viewer.user.js" target="_blank" rel="noopener noreferrer">https://cdn.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@1.0.7/cursor-dashboard-usage-viewer.user.js</a>
 
 Fallback (may not trigger Tampermonkey install in some browsers):  
 <a href="https://github.com/zhujunsan/cursor-dashboard-usage-viewer/raw/main/cursor-dashboard-usage-viewer.user.js" target="_blank" rel="noopener noreferrer">https://github.com/zhujunsan/cursor-dashboard-usage-viewer/raw/main/cursor-dashboard-usage-viewer.user.js</a>
@@ -57,7 +57,6 @@ After installation, the script should appear as **Cursor Dashboard Usage Viewer*
 1. Hard refresh: `Cmd+Shift+R` / `Ctrl+Shift+R`
 2. Confirm Tampermonkey is enabled on `cursor.com`
 3. In the Console, search for `[Cursor Dashboard Usage Viewer]` — you should see a `script loaded v…` log
-4. Enterprise accounts require a `team_id` cookie
 
 ## Updates
 
@@ -67,14 +66,14 @@ The script uses jsDelivr `@latest` for `@updateURL` / `@downloadURL`. Tampermonk
 
 | URL pattern | Behavior |
 |-------------|----------|
-| `@latest` | Resolves to the highest semver Git tag (e.g. `v1.0.6`). Best for auto-updates when releases are tagged. |
-| `@1.0.6` | Pinned to a specific version. No stale-cache surprises; use for manual installs. |
+| `@latest` | Resolves to the highest semver Git tag (e.g. `v1.0.7`). Best for auto-updates when releases are tagged. |
+| `@1.0.7` | Pinned to a specific version. No stale-cache surprises; use for manual installs. |
 | `@main` | Tracks the branch; may lag up to ~12 hours after a push. |
 
 **Recommended release flow** (keeps updates timely):
 
 1. Bump `@version` in the userscript and push to `main`.
-2. Create a matching Git tag: `git tag v1.0.6 && git push origin v1.0.6`
+2. Create a matching Git tag: `git tag v1.0.7 && git push origin v1.0.7`
 3. (Optional) Purge jsDelivr cache immediately:  
    <a href="https://purge.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@latest/cursor-dashboard-usage-viewer.user.js" target="_blank" rel="noopener noreferrer">https://purge.jsdelivr.net/gh/zhujunsan/cursor-dashboard-usage-viewer@latest/cursor-dashboard-usage-viewer.user.js</a>
 
