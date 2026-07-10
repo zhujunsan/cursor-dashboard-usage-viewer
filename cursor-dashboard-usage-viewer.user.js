@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.8
+// @version      1.0.9
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -19,6 +19,7 @@
 
 /*
  * Changelog
+ * 1.0.9  Read version from @version via GM_info
  * 1.0.8  Add in-script changelog
  * 1.0.7  Drop teamId query; fetch /api/usage-summary directly
  * 1.0.6  Rename Auto plan row to First-party models
@@ -37,7 +38,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.8';
+  const VERSION = GM_info.script.version;
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
