@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.7
+// @version      1.0.8
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -17,6 +17,19 @@
 // @icon         https://cursor.com/favicon.ico
 // ==/UserScript==
 
+/*
+ * Changelog
+ * 1.0.8  Add in-script changelog
+ * 1.0.7  Drop teamId query; fetch /api/usage-summary directly
+ * 1.0.6  Rename Auto plan row to First-party models
+ * 1.0.5  Harden mounting, refresh feedback, and progress-bar semantics
+ * 1.0.4  Remove progress bar border radius
+ * 1.0.3  Polish usage meta formatting; add billing-cycle time markers
+ * 1.0.2  Switch install/update URLs to jsDelivr with release tagging
+ * 1.0.1  Fix script URLs, percentage display, and progress bar styling
+ * 1.0.0  Initial release
+ */
+
 (function () {
   'use strict';
 
@@ -24,7 +37,7 @@
 
   const ROOT_ID = 'cursor-usage-enhancer-root';
   const STYLE_ID = 'cursor-usage-enhancer-style';
-  const VERSION = '1.0.7';
+  const VERSION = '1.0.8';
   const TAG = '[Cursor Dashboard Usage Viewer]';
   const USAGE_PAGE_RE = /\/dashboard\/usage(?:\/|$|\?)/;
   const MOUNT_TIMEOUT_MS = 10000;
