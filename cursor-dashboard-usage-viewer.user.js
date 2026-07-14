@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursor Dashboard Usage Viewer
 // @namespace    https://github.com/zhujunsan/cursor-dashboard-usage-viewer
-// @version      1.0.10
+// @version      1.0.11
 // @description  Display usage balance from Cursor dashboard on the usage page
 // @author       San
 // @match        https://cursor.com/dashboard
@@ -19,6 +19,7 @@
 
 /*
  * Changelog
+ * 1.0.11 Show Plan Included as total used / plan limit
  * 1.0.10 Fix Plan Included limit/used display; hide zero-bonus line
  * 1.0.9  Read version from @version via GM_info
  * 1.0.8  Add in-script changelog
@@ -374,9 +375,8 @@
   function renderPlanIncludedRows(plan, timePct) {
     const breakdown = plan.breakdown;
     const bonus = breakdown?.bonus ?? 0;
-    const total = breakdown?.total;
-    const displayUsed = plan.used;
-    const displayLimit = (total != null && total > plan.limit) ? total : plan.limit;
+    const displayUsed = breakdown?.total ?? plan.used;
+    const displayLimit = plan.limit;
     const usedPct = calcUsedPct(displayUsed, displayLimit);
     const parts = [
       inlineWithPercent(
